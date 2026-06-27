@@ -1,0 +1,38 @@
+{
+  "name": "usdollar-news-agent",
+  "version": "1.0.0",
+  "description": "Mastra agent that scrapes the internet for US Dollar news",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "scheduler": "tsx src/scheduler.ts"
+  },
+  "keywords": [
+    "mastra",
+    "agent",
+    "usdollar",
+    "news",
+    "scraper"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@mastra/core": "^0.24.9",
+    "@mastra/mcp": "^0.14.5",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.11",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^8.0.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
