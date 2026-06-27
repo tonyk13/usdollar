@@ -27,7 +27,7 @@
 ## 5. Optional remote (gated on user input)
 
 - [x] 5.1 Ask the user whether to push to a remote and, if yes, get the remote URL (e.g. `github.com/tonyk13/usdollar`)
-- [ ] 5.2 If yes: `git remote add origin <url>`, `git branch -M main`, `git push -u origin main`
-- [ ] 5.3 If no: leave the repo local-only and note in a follow-up that pushing is one command away
+- [x] 5.2 If yes: `git remote add origin <url>`, `git branch -M main`, `git push -u origin main`
+- [x] 5.3 If no: leave the repo local-only and note in a follow-up that pushing is one command away
 
-> **Paused 2026-06-27:** User is creating an empty repo on GitHub. When they provide the URL, run 5.2 (the branch is already `main` so `git branch -M main` is a no-op; just `git remote add origin <url> && git push -u origin main`). Then mark 5.3 done (N/A — remote WAS set up).
+> ~~Paused 2026-06-27:~~ Resolved. Remote: https://github.com/tonyk13/usdollar.git — pushed successfully, `main` tracks `origin/main`.
