@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "scheduler": "tsx src/scheduler.ts"
+    "scheduler": "tsx src/scheduler.ts",
+    "smoke": "tsx src/smoke-test.ts"
   },
   "keywords": [
     "mastra",

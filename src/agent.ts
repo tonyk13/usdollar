@@ -4,7 +4,7 @@ import { z } from "zod";
 import * as cheerio from "cheerio";
 
 // Tool to scrape web pages for USD news
-const scrapeWebPage = createTool({
+export const scrapeWebPage = createTool({
 	id: "scrape-web-page",
 	description:
 		"Scrape a web page and extract article content, headlines, and summaries relevant to the US Dollar",
@@ -73,7 +73,7 @@ const scrapeWebPage = createTool({
 });
 
 // Tool to search for USD news using a search engine-like approach
-const searchUSDNews = createTool({
+export const searchUSDNews = createTool({
 	id: "search-usd-news",
 	description:
 		"Search for recent US Dollar news by scraping known financial news sources",
