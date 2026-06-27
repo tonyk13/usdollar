@@ -56,9 +56,36 @@ npm run smoke
 
 This prints a per-source health table showing status, article count, and which strategy matched. Useful for diagnosing scraping issues quickly. See [Troubleshooting Scraping](#troubleshooting-scraping) below.
 
-### Scheduled Reports (8 AM ET Daily)
+### Scheduled Reports — macOS (launchd, recommended)
 
-Run the persistent scheduler that checks daily and emails the report:
+Install a launchd agent that runs the report daily at 8:00 AM and survives reboot, logout, and terminal closure:
+
+```bash
+./scripts/install-launchd.sh
+```
+
+The installer:
+- Resolves absolute paths to `node` and `tsx` (launchd runs with a minimal PATH)
+- Writes a plist to `~/Library/LaunchAgents/com.tonyk.usdollar-news.plist`
+- Loads it with `launchctl`
+
+The agent will:
+- **Run daily at 8:00 AM local time** (see timezone note below)
+- **Catch up on boot/wake** if 8 AM was missed (`RunAtLoad` + `shouldRunCatchUp()` guard prevents double-runs)
+- **Log to** `~/.usdollar-logs/usdollar-news.log` and `.err.log`
+
+To uninstall:
+
+```bash
+./scripts/uninstall-launchd.sh            # keeps logs
+./scripts/uninstall-launchd.sh --purge-logs  # also removes logs
+```
+
+**Timezone note:** launchd's `StartCalendarInterval` fires in your Mac's local system timezone. If your Mac is set to America/New_York, it fires at 8:00 AM ET. If your Mac is in another timezone, either change the Mac's timezone or edit the `<integer>8</integer>` in the plist to 8 AM in your local timezone.
+
+### Scheduled Reports — Interactive / Non-macOS
+
+For development or non-macOS systems, run the persistent scheduler in a terminal:
 
 ```bash
 npm run scheduler
@@ -68,6 +95,14 @@ The scheduler will:
 - **Check on startup**: If your Mac was asleep at 8 AM, it immediately runs the report (catch-up)
 - **Run daily at 8:00 AM ET**: Automatically generates and emails the report
 - **Keep running**: The process stays alive until you press Ctrl+C
+
+For a single run without keeping a process alive (useful for cron, systemd, or manual triggers):
+
+```bash
+npm run run-once
+```
+
+This runs the catch-up check, generates the report if due, and exits.
 
 ### Email Setup
 
@@ -114,18 +149,22 @@ To make tools work, the agent disables thinking mode by passing `thinking: { typ
 
 ```
 ├── src/
-│   ├── agent.ts       # Agent definition, tools, and source adapter map
-│   ├── mastra.ts      # Mastra framework configuration
-│   ├── index.ts       # One-time report entry point
-│   ├── scheduler.ts   # Persistent scheduler with catch-up logic
-│   ├── report.ts      # Report generation logic
-│   ├── smoke-test.ts  # Scraping smoke test (no LLM, no email)
-│   └── email.ts       # Email delivery logic
-├── .env.example       # Environment variable template
-├── .last-run.json     # Tracks last run time for catch-up
-├── package.json       # Project dependencies
-├── tsconfig.json      # TypeScript configuration
-└── README.md          # This file
+│   ├── agent.ts            # Agent definition, tools, and source adapter map
+│   ├── mastra.ts           # Mastra framework configuration
+│   ├── index.ts            # One-time report entry point
+│   ├── scheduler.ts        # Long-lived scheduler (interactive/non-macOS)
+│   ├── scheduler-utils.ts  # Shared catch-up + run-report logic
+│   ├── run-once.ts         # One-shot entry point (for launchd/cron)
+│   ├── report.ts           # Report generation logic
+│   ├── smoke-test.ts       # Scraping smoke test (no LLM, no email)
+│   └── email.ts            # Email delivery logic
+├── plist/                  # launchd plist template
+├── scripts/                # install/uninstall launchd scripts
+├── .env.example            # Environment variable template
+├── .last-run.json          # Tracks last run time for catch-up (gitignored)
+├── package.json            # Project dependencies
+├── tsconfig.json           # TypeScript configuration
+└── README.md               # This file
 ```
 
 ## News Sources
@@ -168,15 +207,45 @@ This runs `src/smoke-test.ts`, which invokes `searchUSDNews` with `source: "all"
 
 - The agent requires a valid Moonshot API key to function
 - **K2.6 Configuration**: The agent uses `kimi-k2.6` with `thinking: { type: "disabled" }` and `temperature: 0.6` (required by the Moonshot API for non-thinking mode)
-- **Scheduler Catch-Up**: If your Mac is asleep at 8 AM, the scheduler will run the report immediately when you wake it up (if you start the scheduler after 8 AM). However, if the scheduler process itself is not running (e.g., you closed the terminal), it cannot catch up.
-- **Keeping the Scheduler Running**: The scheduler only works while the terminal is open. To run it in the background even after closing the terminal:
-  ```bash
-  nohup npm run scheduler > scheduler.log 2>&1 &
-  ```
-  Then check the log with: `tail -f scheduler.log`
+- **Scheduler reliability**: The launchd mode (macOS, recommended) survives reboot and logout. The interactive `npm run scheduler` mode only works while a terminal is open. Use `npm run run-once` for single-run scenarios (cron, systemd, manual triggers).
 - Some news sites may block automated scraping or require authentication; results may vary
 - The agent is designed for educational and research purposes
 - Respect the terms of service of the news sources being scraped
+
+## Troubleshooting Scheduling
+
+**The scheduled report didn't run:**
+
+1. **Check if the launchd agent is loaded:**
+   ```bash
+   launchctl list | grep usdollar
+   ```
+   If nothing appears, reinstall with `./scripts/install-launchd.sh`.
+
+2. **Check the logs:**
+   ```bash
+   cat ~/.usdollar-logs/usdollar-news.log
+   cat ~/.usdollar-logs/usdollar-news.err.log
+   ```
+
+3. **Check the timezone:** launchd fires `StartCalendarInterval` in your Mac's local timezone. Verify your Mac's timezone:
+   ```bash
+   sudo systemsetup -gettimezone
+   ```
+   If it's not America/New_York, either change it or edit the plist's `<integer>8</integer>` to 8 AM in your local timezone, then reload:
+   ```bash
+   launchctl unload ~/Library/LaunchAgents/com.tonyk.usdollar-news.plist
+   launchctl load ~/Library/LaunchAgents/com.tonyk.usdollar-news.plist
+   ```
+
+4. **Manually trigger a run:**
+   ```bash
+   launchctl kickstart gui/$(id -u)/com.tonyk.usdollar-news
+   ```
+
+5. **The report ran twice:** This shouldn't happen — `shouldRunCatchUp()` checks `.last-run.json` and skips if today's run already completed. If it did run twice, check that `.last-run.json` exists and contains today's date. The file is at the project root (gitignored).
+
+6. **launchd can't find node or tsx:** The install script bakes absolute paths into the plist. If you moved the project or upgraded node, rerun `./scripts/install-launchd.sh` to regenerate the plist with updated paths.
 
 ## License
 

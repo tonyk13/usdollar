@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        USD News Agent — launchd scheduled task
+
+        This plist was generated from plist/com.tonyk.usdollar-news.plist.template
+        by scripts/install-launchd.sh, which substituted absolute paths for
+        __PROJECT_DIR__, __NODE_PATH__, __TSX_PATH__, and __LOG_DIR__.
+
+        TIMEZONE NOTE:
+        launchd's StartCalendarInterval fires in the Mac's LOCAL system timezone,
+        NOT UTC. This plist is configured for 8:00 AM local time. If your Mac is
+        set to America/New_York (ET), this fires at 8:00 AM ET as intended.
+        If your Mac is in a different timezone, either:
+          - Change the Mac's timezone to America/New_York, OR
+          - Edit the <hour> below to 8 AM in your local timezone.
+
+        RunAtLoad: true means the one-shot fires on every load/wake/boot.
+        The run-once script's shouldRunCatchUp() guard ensures it only
+        actually generates a report if today's 8 AM run hasn't happened yet.
+    -->
+
+    <key>Label</key>
+    <string>com.tonyk.usdollar-news</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__NODE_PATH__</string>
+        <string>__TSX_PATH__</string>
+        <string>__PROJECT_DIR__/src/run-once.ts</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+
+    <!-- Fire daily at 8:00 AM local time -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Also fire on load (catch-up after sleep/reboot) -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Log output -->
+    <key>StandardOutPath</key>
+    <string>__LOG_DIR__/usdollar-news.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__LOG_DIR__/usdollar-news.err.log</string>
+
+    <!-- Don't keep alive — this is a one-shot, not a daemon -->
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>
