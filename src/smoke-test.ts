@@ -3,7 +3,7 @@ import { searchUSDNews } from "./agent.js";
 import { RuntimeContext } from "@mastra/core/runtime-context";
 
 async function main(): Promise<void> {
-	console.log("🔥 Scraping smoke test — baseline (pre-hardening)\n");
+	console.log("🔥 Scraping smoke test\n");
 	console.log("   Invoking searchUSDNews with source: 'all', limit: 5");
 	console.log("   No LLM call, no email. Live network requests only.\n");
 
@@ -15,6 +15,7 @@ async function main(): Promise<void> {
 	const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
 	const articles = (result as { articles: Array<{ title: string; url: string; source: string }> }).articles ?? [];
+	const health = (result as { health: Array<{ source: string; status: string; articleCount: number; strategiesTried: number; matchedStrategy?: string; error?: string }> }).health ?? [];
 
 	const bySource = new Map<string, string[]>();
 	for (const a of articles) {
@@ -23,27 +24,39 @@ async function main(): Promise<void> {
 		bySource.set(a.source, list);
 	}
 
-	const knownSources = ["reuters", "bloomberg", "cnbc", "wsj", "ft", "marketwatch"];
-	const padName = 12;
-	console.log("─".repeat(70));
+	const padName = 14;
+	console.log("─".repeat(75));
+	console.log("SOURCE HEALTH");
+	console.log("─".repeat(75));
+	for (const h of health) {
+		const statusIcon =
+			h.status === "ok" ? "✅" :
+			h.status === "skipped" ? "⏭️" :
+			h.status === "error" ? "❌" : "⚠️";
+		const matched = h.matchedStrategy ? ` via ${h.matchedStrategy}` : "";
+		const err = h.error ? ` (${h.error.slice(0, 40)})` : "";
+		console.log(`${statusIcon} ${h.source.padEnd(padName)} │ ${h.status.padEnd(8)} │ ${h.articleCount} articles │ strategies tried: ${h.strategiesTried}${matched}${err}`);
+	}
+
+	console.log("\n" + "─".repeat(75));
+	console.log("ARTICLES BY SOURCE");
+	console.log("─".repeat(75));
+	const knownSources = ["reuters", "cnbc", "marketwatch", "wsj", "bloomberg", "ft"];
 	for (const src of knownSources) {
 		const titles = bySource.get(src) ?? [];
-		const status = titles.length > 0 ? `${titles.length} article${titles.length === 1 ? "" : "s"}` : "EMPTY";
-		console.log(`${src.padEnd(padName)} │ ${status.padEnd(12)} │ ${titles[0] ?? ""}`);
-		if (titles.length > 1) {
-			for (let i = 1; i < titles.length; i++) {
-				console.log(`${"".padEnd(padName)} │ ${"".padEnd(12)} │ ${titles[i]}`);
-			}
+		if (titles.length === 0 && !health.find((h) => h.source === src)) continue;
+		const status = titles.length > 0 ? `${titles.length} article${titles.length === 1 ? "" : "s"}` : "none";
+		console.log(`\n${src.padEnd(padName)} │ ${status}`);
+		for (const t of titles) {
+			console.log(`  ${"".padEnd(padName)} │ ${t.slice(0, 70)}`);
 		}
 	}
-	console.log("─".repeat(70));
+	console.log("\n" + "─".repeat(75));
 
-	const alive = knownSources.filter((s) => (bySource.get(s) ?? []).length > 0).length;
-	const empty = knownSources.filter((s) => (bySource.get(s) ?? []).length === 0);
-	console.log(`\nSummary: ${alive}/${knownSources.length} sources returned articles.`);
-	if (empty.length > 0) {
-		console.log(`Empty sources: ${empty.join(", ")}`);
-	}
+	const okCount = health.filter((h) => h.status === "ok").length;
+	const skippedCount = health.filter((h) => h.status === "skipped").length;
+	const degradedCount = health.filter((h) => h.status === "empty" || h.status === "error").length;
+	console.log(`\nSummary: ${okCount} ok · ${degradedCount} degraded · ${skippedCount} skipped`);
 	console.log(`Total articles: ${articles.length}  ·  Elapsed: ${elapsed}s`);
 
 	process.exit(0);
