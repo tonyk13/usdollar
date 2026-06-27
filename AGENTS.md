@@ -10,13 +10,13 @@ This file lists the commands AI sessions (including opencode) should run to veri
 | `npm start` | Run the agent once: scrape news, generate report, print to terminal (and email if configured) |
 | `npm run dev` | Run `src/index.ts` in watch mode with auto-reload on file changes |
 | `npm run scheduler` | Start the persistent node-cron scheduler (daily 8 AM ET, with catch-up on startup) |
+| `npm run smoke` | Scraping smoke test — invokes `searchUSDNews` with all sources, prints per-source health. No LLM call, no email. |
 | `npm test` | No test runner is configured in this project yet |
 
 ## Commands arriving with planned OpenSpec changes
 
 These scripts do not exist yet. They will be added by the corresponding change under `openspec/changes/`:
 
-- `npm run smoke` — scraping smoke test (from `harden-news-scraping`)
 - `npm run run-once` — launchd-friendly one-shot report run (from `harden-scheduler-reliability`)
 - `npm run test-email` — send a test email to verify SMTP config (from `verify-email-delivery`)
 

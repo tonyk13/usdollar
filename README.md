@@ -46,6 +46,16 @@ Or in development mode with auto-reload:
 npm run dev
 ```
 
+### Scraping Smoke Test
+
+Verify that news sources are reachable and returning articles, without invoking the LLM or sending email:
+
+```bash
+npm run smoke
+```
+
+This prints a per-source health table showing status, article count, and which strategy matched. Useful for diagnosing scraping issues quickly. See [Troubleshooting Scraping](#troubleshooting-scraping) below.
+
 ### Scheduled Reports (8 AM ET Daily)
 
 Run the persistent scheduler that checks daily and emails the report:
@@ -83,7 +93,7 @@ npm run build
 
 The agent uses two specialized tools to gather and analyze US Dollar news:
 
-1. **`searchUSDNews`**: Scrapes major financial news websites (Reuters, Bloomberg, CNBC, WSJ, FT, MarketWatch) for USD-related articles
+1. **`searchUSDNews`**: Scrapes financial news websites for USD-related articles. Each source has a per-source adapter with ordered selector strategies and a Google News RSS fallback. The tool returns both articles and a `health` array reporting the status (`ok`, `empty`, `error`, or `skipped`) of each source.
 2. **`scrapeWebPage`**: Deep-scrapes individual article pages for detailed content
 
 The agent then uses **Kimi K2.6** (with thinking disabled) to analyze the scraped data and provide a comprehensive report on:
@@ -104,11 +114,12 @@ To make tools work, the agent disables thinking mode by passing `thinking: { typ
 
 ```
 ├── src/
-│   ├── agent.ts       # Agent definition and tools
+│   ├── agent.ts       # Agent definition, tools, and source adapter map
 │   ├── mastra.ts      # Mastra framework configuration
 │   ├── index.ts       # One-time report entry point
 │   ├── scheduler.ts   # Persistent scheduler with catch-up logic
 │   ├── report.ts      # Report generation logic
+│   ├── smoke-test.ts  # Scraping smoke test (no LLM, no email)
 │   └── email.ts       # Email delivery logic
 ├── .env.example       # Environment variable template
 ├── .last-run.json     # Tracks last run time for catch-up
@@ -119,14 +130,39 @@ To make tools work, the agent disables thinking mode by passing `thinking: { typ
 
 ## News Sources
 
-The agent can scrape from the following sources:
+The agent scrapes the following sources. Each has a per-source adapter in `src/agent.ts` with ordered strategies (direct scrape → Google News RSS fallback) and health tracking:
 
-- Reuters Markets
-- Bloomberg Markets
-- CNBC Currencies
-- Wall Street Journal
-- Financial Times
-- MarketWatch
+| Source | Status | Strategy |
+|--------|--------|----------|
+| Reuters Markets | ✅ Active | Direct scrape (rich headers + date-pattern links) → RSS fallback |
+| CNBC Currencies | ✅ Active | Google News RSS (site is JS-rendered, no static HTML to scrape) |
+| MarketWatch | ✅ Active | Direct scrape (rich headers + `/story/` links) → RSS fallback |
+| Wall Street Journal | ✅ Active | Direct scrape (existing selectors) → RSS fallback |
+| Bloomberg Markets | ⏭️ Skipped | Paywalled — blocks non-subscriber scraping |
+| Financial Times | ⏭️ Skipped | Paywalled — blocks non-subscriber scraping |
+
+When a source is `skipped`, `empty`, or `error`, the agent's report includes a **Source Health Warning** section at the top naming the degraded sources so the reader knows the report may be incomplete.
+
+### Scraping Smoke Test
+
+To verify scraping health without invoking the LLM or sending email:
+
+```bash
+npm run smoke
+```
+
+This runs `src/smoke-test.ts`, which invokes `searchUSDNews` with `source: "all"` and prints a per-source health table (status, article count, matched strategy, errors). Use it to diagnose scraping issues quickly.
+
+## Troubleshooting Scraping
+
+**A source shows `empty` or `error` in the smoke test or report:**
+
+1. **Check the matched strategy.** If the direct-scrape strategy failed and the RSS fallback succeeded, the site may have changed its HTML structure. The direct selectors in the source's adapter entry in `src/agent.ts` need updating.
+2. **Check if the site is blocking you.** A `401` or `403` HTTP status means the site is rejecting the request. The rich headers in `RICH_HEADERS` (in `src/agent.ts`) mimic a real browser; if the site has added stronger bot detection, the direct strategy may stop working. The Google News RSS fallback will usually still work.
+3. **Check if the site is a JS-rendered SPA.** Sites like CNBC load articles via JavaScript, so no article links appear in the static HTML. These sources rely on the Google News RSS strategy as their primary (or only) strategy.
+4. **To fix a broken source:** Update its adapter entry in the `sourceAdapters` map in `src/agent.ts`. Each adapter has an ordered list of strategies — add or modify a strategy to match the site's current HTML structure. Run `npm run smoke` to verify the fix.
+5. **To add a new source:** Add a new entry to the `sourceAdapters` map with at least one strategy. The tool will pick it up automatically when `source: "all"` is requested. Add the source name to the `source` enum in the tool's `inputSchema` as well.
+6. **To skip a source permanently:** Set `skipped: true` and `skipReason: "..."` on its adapter entry. It will be reported as `skipped` in the health metadata rather than silently failing.
 
 ## Notes
 
