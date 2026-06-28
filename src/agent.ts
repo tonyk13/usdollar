@@ -244,8 +244,7 @@ export const scrapeWebPage = createTool({
 		content: z.string().describe("Extracted text content from the page"),
 		links: z.array(z.string()).describe("Relevant links found on the page"),
 	}),
-	execute: async ({ context }: { context: { url: string } }) => {
-		const { url } = context;
+	execute: async ({ url }: { url: string }) => {
 		try {
 			const response = await fetch(url, {
 				headers: RICH_HEADERS,
@@ -346,13 +345,7 @@ export const searchUSDNews = createTool({
 			)
 			.describe("Per-source health report"),
 	}),
-	execute: async ({
-		context,
-	}: {
-		context: { source: string; limit: number };
-	}) => {
-		const { source, limit } = context;
-
+	execute: async ({ source = "all", limit = 5 }) => {
 		const adaptersToRun =
 			source === "all"
 				? Object.values(sourceAdapters)
@@ -415,6 +408,7 @@ export const searchUSDNews = createTool({
 // ─── The agent ──────────────────────────────────────────────────────
 
 export const usdNewsAgent = new Agent({
+	id: "usd-news-agent",
 	name: "USD News Scraper",
 
 	instructions: `
@@ -439,11 +433,7 @@ export const usdNewsAgent = new Agent({
     its status, and a brief explanation. This tells the reader which sources are missing
     from today's report so they know it may be incomplete.
   `,
-	model: {
-		providerId: "moonshotai",
-		modelId: "kimi-k2.6",
-		apiKey: process.env.MOONSHOT_API_KEY,
-	},
+	model: "moonshotai/kimi-k2.6",
 	tools: {
 		scrapeWebPage,
 		searchUSDNews,

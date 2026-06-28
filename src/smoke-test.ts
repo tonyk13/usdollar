@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { searchUSDNews } from "./agent.js";
-import { RuntimeContext } from "@mastra/core/runtime-context";
+import { RequestContext } from "@mastra/core/request-context";
+import { noopObserve, isValidationError } from "@mastra/core/tools";
 
 async function main(): Promise<void> {
 	console.log("🔥 Scraping smoke test\n");
@@ -8,14 +9,24 @@ async function main(): Promise<void> {
 	console.log("   No LLM call, no email. Live network requests only.\n");
 
 	const start = Date.now();
-	const result = await searchUSDNews.execute({
-		context: { source: "all", limit: 5 },
-		runtimeContext: new RuntimeContext(),
-	} as Parameters<typeof searchUSDNews.execute>[0]);
+	const result = await searchUSDNews.execute!(
+		{ source: "all", limit: 5 },
+		{ observe: noopObserve, requestContext: new RequestContext() },
+	);
 	const elapsed = ((Date.now() - start) / 1000).toFixed(1);
 
-	const articles = (result as { articles: Array<{ title: string; url: string; source: string }> }).articles ?? [];
-	const health = (result as { health: Array<{ source: string; status: string; articleCount: number; strategiesTried: number; matchedStrategy?: string; error?: string }> }).health ?? [];
+	if (!result) {
+		console.error("❌ Tool returned no output");
+		process.exit(1);
+	}
+
+	if (isValidationError(result)) {
+		console.error("❌ Tool output validation failed:", result.message);
+		process.exit(1);
+	}
+
+	const articles = result.articles ?? [];
+	const health = result.health ?? [];
 
 	const bySource = new Map<string, string[]>();
 	for (const a of articles) {

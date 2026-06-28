@@ -2,12 +2,6 @@ import "dotenv/config";
 import { generateUSDReport } from "./report.js";
 import { sendReportEmail, isEmailConfigured } from "./email.js";
 
-// Disable telemetry warnings
-declare global {
-	var ___MASTRA_TELEMETRY___: boolean;
-}
-globalThis.___MASTRA_TELEMETRY___ = true;
-
 async function main(): Promise<void> {
 	try {
 		const report = await generateUSDReport();

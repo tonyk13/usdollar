@@ -3,12 +3,6 @@ import {
 	runReport,
 } from "./scheduler-utils.js";
 
-// Disable telemetry warnings
-declare global {
-	var ___MASTRA_TELEMETRY___: boolean;
-}
-globalThis.___MASTRA_TELEMETRY___ = true;
-
 async function main(): Promise<void> {
 	console.log("🚀 USD News Agent — one-shot run\n");
 

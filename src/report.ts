@@ -1,7 +1,7 @@
 import { mastra } from "./mastra.js";
 
 export async function generateUSDReport(): Promise<string> {
-	const agent = mastra.getAgent("usdNewsAgent");
+	const agent = mastra.getAgentById("usd-news-agent");
 
 	console.log("🔍 Scraping the internet for US Dollar news...\n");
 
